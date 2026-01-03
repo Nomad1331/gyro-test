@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gyro Satisfying Demo</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: radial-gradient(circle at top, #111, #000);
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+    }
+
+    #orb {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff, #6cf);
+      box-shadow:
+        0 0 40px rgba(100,200,255,0.8),
+        inset -10px -10px 30px rgba(0,0,0,0.4);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s ease-out;
+    }
+
+    #button {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 22px;
+      font-size: 16px;
+      border-radius: 999px;
+      border: none;
+      background: #6cf;
+      color: #000;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(100,200,255,0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="orb"></div>
+  <button id="button">Enable Motion</button>
+
+  <script>
+    const orb = document.getElementById("orb");
+    const button = document.getElementById("button");
+
+    let currentX = 0;
+    let currentY = 0;
+
+    function handleOrientation(event) {
+      const x = event.gamma || 0; // left-right
+      const y = event.beta || 0;  // front-back
+
+      // clamp values
+      const max = 30;
+      const tiltX = Math.max(-max, Math.min(max, x));
+      const tiltY = Math.max(-max, Math.min(max, y));
+
+      // smooth movement
+      currentX += (tiltX - currentX) * 0.1;
+      currentY += (tiltY - currentY) * 0.1;
+
+      orb.style.transform =
+        `translate(-50%, -50%) translate(${currentX * 6}px, ${currentY * 6}px)`;
+    }
+
+    async function enableMotion() {
+      if (
+        typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function"
+      ) {
+        const permission = await DeviceOrientationEvent.requestPermission();
+        if (permission !== "granted") return;
+      }
+
+      window.addEventListener("deviceorientation", handleOrientation);
+      button.style.display = "none";
+    }
+
+    button.addEventListener("click", enableMotion);
+  </script>
+
+</body>
+</html>
