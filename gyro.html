@@ -1,58 +1,60 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gyro Orb</title>
-
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      background: radial-gradient(circle at top, #111, #000);
+      background: #000;
       overflow: hidden;
     }
-
-    #orb {
-      position: absolute;
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #fff, #6cf);
-      box-shadow:
-        0 0 40px rgba(100,200,255,0.8),
-        inset -10px -10px 30px rgba(0,0,0,0.4);
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
+    canvas {
+      display: block;
     }
   </style>
 </head>
 <body>
+<canvas id="c"></canvas>
 
-  <div id="orb"></div>
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
 
-  <script>
-    const orb = document.getElementById("orb");
+function resize() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
 
-    let xPos = 0;
-    let yPos = 0;
+let x = 0, y = 0;
 
-    window.addEventListener("deviceorientation", (e) => {
-      if (e.gamma === null || e.beta === null) return;
+window.addEventListener("deviceorientation", e => {
+  if (e.gamma == null) return;
+  x += (e.gamma - x) * 0.1;
+  y += (e.beta - y) * 0.1;
+});
 
-      const x = Math.max(-30, Math.min(30, e.gamma));
-      const y = Math.max(-30, Math.min(30, e.beta));
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // smoothing
-      xPos += (x - xPos) * 0.1;
-      yPos += (y - yPos) * 0.1;
+  ctx.beginPath();
+  ctx.arc(
+    canvas.width / 2 + x * 10,
+    canvas.height / 2 + y * 10,
+    60,
+    0,
+    Math.PI * 2
+  );
+  ctx.fillStyle = "#6cf";
+  ctx.shadowBlur = 30;
+  ctx.shadowColor = "#6cf";
+  ctx.fill();
 
-      orb.style.transform =
-        `translate(-50%, -50%) translate(${xPos * 6}px, ${yPos * 6}px)`;
-    });
-  </script>
-
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
 </body>
 </html>
