@@ -1,60 +1,326 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Neon Marble Fidget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            touch-action: none;
+        }
+        
+        #permissionBtn {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background: linear-gradient(135deg, #00f5ff, #0080ff);
+            border: 2px solid #00f5ff;
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(0, 245, 255, 0.6);
+            z-index: 1000;
+        }
+        
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(0, 245, 255, 0.5);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(0, 245, 255, 0.8);
+        }
+    </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+    <canvas id="canvas"></canvas>
+    <button id="permissionBtn" style="display: none;">ENABLE GYRO</button>
+    <div id="info">TILT TO MOVE • TAP TO ADD JUMP PADS</div>
 
-<script>
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
-
-function resize() {
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-}
-resize();
-addEventListener("resize", resize);
-
-let x = 0, y = 0;
-
-window.addEventListener("deviceorientation", e => {
-  if (e.gamma == null) return;
-  x += (e.gamma - x) * 0.1;
-  y += (e.beta - y) * 0.1;
-});
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.beginPath();
-  ctx.arc(
-    canvas.width / 2 + x * 10,
-    canvas.height / 2 + y * 10,
-    60,
-    0,
-    Math.PI * 2
-  );
-  ctx.fillStyle = "#6cf";
-  ctx.shadowBlur = 30;
-  ctx.shadowColor = "#6cf";
-  ctx.fill();
-
-  requestAnimationFrame(draw);
-}
-draw();
-</script>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const info = document.getElementById('info');
+        const permissionBtn = document.getElementById('permissionBtn');
+        
+        let w, h;
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+        
+        // Marble
+        const marble = {
+            x: w / 2,
+            y: h / 2,
+            vx: 0,
+            vy: 0,
+            radius: 15,
+            color: '#00f5ff',
+            trail: []
+        };
+        
+        // Jump pads
+        const jumpPads = [];
+        const maxPads = 8;
+        
+        // Gyro data
+        let gyro = { x: 0, y: 0 };
+        let hasGyro = false;
+        
+        // Check if we need permission (iOS 13+)
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            permissionBtn.style.display = 'block';
+            permissionBtn.addEventListener('click', async () => {
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
+                    if (response === 'granted') {
+                        permissionBtn.style.display = 'none';
+                        startGyro();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            });
+        } else {
+            startGyro();
+        }
+        
+        function startGyro() {
+            window.addEventListener('deviceorientation', (e) => {
+                if (e.gamma !== null && e.beta !== null) {
+                    hasGyro = true;
+                    gyro.x = Math.max(-1, Math.min(1, e.gamma / 45));
+                    gyro.y = Math.max(-1, Math.min(1, e.beta / 45));
+                }
+            });
+        }
+        
+        // Touch/click to add jump pads
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (jumpPads.length >= maxPads) {
+                jumpPads.shift();
+            }
+            
+            jumpPads.push({
+                x: x,
+                y: y,
+                radius: 30,
+                color: 'hsl(' + (Math.random() * 60 + 280) + ', 100%, 60%)',
+                active: true,
+                charge: 1
+            });
+        });
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            if (jumpPads.length >= maxPads) {
+                jumpPads.shift();
+            }
+            
+            jumpPads.push({
+                x: x,
+                y: y,
+                radius: 30,
+                color: 'hsl(' + (Math.random() * 60 + 280) + ', 100%, 60%)',
+                active: true,
+                charge: 1
+            });
+        });
+        
+        function animate() {
+            // Fade trail effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, w, h);
+            
+            // Physics
+            const gravity = 0.5;
+            const friction = 0.98;
+            const bounce = 0.8;
+            
+            // Apply gyro
+            if (hasGyro) {
+                marble.vx += gyro.x * gravity;
+                marble.vy += gyro.y * gravity;
+            } else {
+                // Fallback: gentle drift for desktop
+                marble.vy += 0.2;
+            }
+            
+            marble.vx *= friction;
+            marble.vy *= friction;
+            
+            // Check jump pad collisions
+            jumpPads.forEach(pad => {
+                if (!pad.active) return;
+                
+                const dx = marble.x - pad.x;
+                const dy = marble.y - pad.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < marble.radius + pad.radius) {
+                    // BOING! Launch to random position
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 25 + Math.random() * 15;
+                    marble.vx = Math.cos(angle) * speed;
+                    marble.vy = Math.sin(angle) * speed;
+                    
+                    pad.active = false;
+                    pad.charge = 0;
+                    
+                    // Respawn after cooldown
+                    setTimeout(() => {
+                        pad.active = true;
+                        pad.charge = 1;
+                    }, 2000);
+                }
+            });
+            
+            // Update position
+            marble.x += marble.vx;
+            marble.y += marble.vy;
+            
+            // Boundaries with bounce
+            if (marble.x < marble.radius) {
+                marble.x = marble.radius;
+                marble.vx *= -bounce;
+            }
+            if (marble.x > w - marble.radius) {
+                marble.x = w - marble.radius;
+                marble.vx *= -bounce;
+            }
+            if (marble.y < marble.radius) {
+                marble.y = marble.radius;
+                marble.vy *= -bounce;
+            }
+            if (marble.y > h - marble.radius) {
+                marble.y = h - marble.radius;
+                marble.vy *= -bounce;
+            }
+            
+            // Trail
+            marble.trail.push({ x: marble.x, y: marble.y });
+            if (marble.trail.length > 30) marble.trail.shift();
+            
+            // Draw trail
+            ctx.strokeStyle = marble.color;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = marble.color;
+            ctx.beginPath();
+            marble.trail.forEach((p, i) => {
+                ctx.globalAlpha = i / marble.trail.length * 0.5;
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            
+            // Draw jump pads
+            jumpPads.forEach(pad => {
+                const alpha = pad.charge;
+                ctx.globalAlpha = alpha * 0.6;
+                
+                // Outer ring
+                ctx.strokeStyle = pad.color;
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = pad.color;
+                ctx.beginPath();
+                ctx.arc(pad.x, pad.y, pad.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Inner glow
+                ctx.fillStyle = pad.color;
+                ctx.shadowBlur = 30;
+                ctx.beginPath();
+                ctx.arc(pad.x, pad.y, pad.radius * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Pulsing animation
+                if (pad.active) {
+                    const pulse = Math.sin(Date.now() * 0.005) * 5;
+                    ctx.strokeStyle = pad.color;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(pad.x, pad.y, pad.radius + pulse, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            });
+            
+            ctx.globalAlpha = 1;
+            
+            // Draw marble with metallic gradient
+            const gradient = ctx.createRadialGradient(
+                marble.x - marble.radius * 0.3,
+                marble.y - marble.radius * 0.3,
+                0,
+                marble.x,
+                marble.y,
+                marble.radius
+            );
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.3, marble.color);
+            gradient.addColorStop(1, '#0040ff');
+            
+            ctx.fillStyle = gradient;
+            ctx.shadowBlur = 40;
+            ctx.shadowColor = marble.color;
+            ctx.beginPath();
+            ctx.arc(marble.x, marble.y, marble.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Marble rim
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(marble.x, marble.y, marble.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.shadowBlur = 0;
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+    </script>
 </body>
 </html>
